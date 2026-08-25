@@ -32,7 +32,8 @@ def get_gemini_response(prompt: str) -> str:
     if not GEMINI_API_KEY:
         return "API Key లోపం: GEMINI_API_KEY ఎన్విరాన్‌మెంట్ వేరియబుల్ సరిగ్గా సెట్ కాలేదు."
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    # Gemini REST API Endpoint
+    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [
