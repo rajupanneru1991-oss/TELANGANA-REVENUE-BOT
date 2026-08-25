@@ -11,7 +11,7 @@ from telegram.ext import (
     filters,
 )
 
-# API Keys (Render Environment నుండి రీడ్ చేస్తుంది)
+# API Keys
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8488523290:AAHpuufgz_aROs_FmGowM7TOzbnAo_AUZ3E")
 
@@ -22,6 +22,7 @@ SYSTEM_INSTRUCTION = """
 2. సంబంధిత ఫారాలు, ధరణి పోర్టల్ ప్రాసెస్, అవసరమైన పత్రాల వివరాలు స్పష్టంగా అందించు.
 """
 
+# Logging Setup
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -31,8 +32,8 @@ def get_gemini_response(prompt: str) -> str:
     if not GEMINI_API_KEY:
         return "API Key లోపం: GEMINI_API_KEY ఎన్విరాన్‌మెంట్ వేరియబుల్ సరిగ్గా సెట్ కాలేదు."
 
-    # Gemini API 2.5 Flash Endpoint
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    # Gemini 3.6 Flash Endpoint
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [
