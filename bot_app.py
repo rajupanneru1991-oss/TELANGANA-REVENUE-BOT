@@ -11,7 +11,7 @@ from telegram.ext import (
     filters,
 )
 
-# API Keys (Render Environment Variables నుండి రీడ్ చేస్తుంది)
+# API Keys
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8488523290:AAHpuufgz_aROs_FmGowM7TOzbnAo_AUZ3E")
 
@@ -22,7 +22,6 @@ SYSTEM_INSTRUCTION = """
 2. సంబంధిత ఫారాలు, ధరణి పోర్టల్ ప్రాసెస్, అవసరమైన పత్రాల వివరాలు స్పష్టంగా అందించు.
 """
 
-# Logging Setup
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -32,13 +31,8 @@ def get_gemini_response(prompt: str) -> str:
     if not GEMINI_API_KEY:
         return "API Key లోపం: GEMINI_API_KEY ఎన్విరాన్‌మెంట్ వేరియబుల్ సరిగ్గా సెట్ కాలేదు."
 
-    # అందుబాటులో ఉన్న మోడల్స్ లిస్ట్
-    models_to_try = [
-        "gemini-2.5-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash"
-    ]
-
+    # Gemini API Endpoint
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [
@@ -50,23 +44,20 @@ def get_gemini_response(prompt: str) -> str:
         ]
     }
 
-    last_error = ""
-    for model in models_to_try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
-        try:
-            response = requests.post(url, headers=headers, json=payload, timeout=30)
-            response_json = response.json()
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        response_json = response.json()
 
-            if response.status_code == 200:
-                candidates = response_json.get("candidates", [])
-                if candidates:
-                    return candidates[0]["content"]["parts"][0]["text"]
-            else:
-                last_error = response_json.get("error", {}).get("message", "Unknown error")
-        except Exception as e:
-            last_error = str(e)
-
-    return f"API Error: {last_error}"
+        if response.status_code == 200:
+            candidates = response_json.get("candidates", [])
+            if candidates:
+                return candidates[0]["content"]["parts"][0]["text"]
+            return "క్షమించండి, సమాధానం రూపొందించడంలో సమస్య ఎదురైంది."
+        else:
+            error_msg = response_json.get("error", {}).get("message", "Unknown error")
+            return f"API Error: {error_msg}"
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
