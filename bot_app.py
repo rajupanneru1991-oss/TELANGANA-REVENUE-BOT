@@ -1,7 +1,6 @@
-import json
 import logging
 import os
-import requests
+import google.generativeai as genai
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -11,9 +10,13 @@ from telegram.ext import (
     filters,
 )
 
-# API Keys (Environment Variables నుండి రీడ్ చేస్తుంది)
+# API Keys
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8488523290:AAHpuufgz_aROs_FmGowM7TOzbnAo_AUZ3E")
+
+# Configure Gemini AI
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
 
 SYSTEM_INSTRUCTION = """
 నువ్వు తెలంగాణ రెవెన్యూ చట్టాలు (RoR Act, సాదా బైనామా, వారసత్వ బదిలీ/Succession, భూమి కొలతలు, రికార్డుల సవరణ) పై సమాధానాలు ఇచ్చే లీగల్ అసిస్టెంట్ బాట్వి.
@@ -30,35 +33,19 @@ logging.basicConfig(
 
 def get_gemini_response(prompt: str) -> str:
     if not GEMINI_API_KEY:
-        return "API Key లోపం: GEMINI_API_KEY ఎన్విరాన్‌మెంట్ వేరియబుల్ సరిగ్గా సెట్ కాలేదు."
-
-    # Gemini REST API Endpoint
-    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-    headers = {"Content-Type": "application/json"}
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": f"{SYSTEM_INSTRUCTION}\n\nUser Question: {prompt}"}
-                ]
-            }
-        ]
-    }
-
+        return "API Key లోపం: GEMINI_API_KEY ఎన్విరాన్‌మెంట్ వేరియబుల్ సెట్ కాలేదు."
+    
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=30)
-        response_json = response.json()
-
-        if response.status_code == 200:
-            candidates = response_json.get("candidates", [])
-            if candidates:
-                return candidates[0]["content"]["parts"][0]["text"]
-            return "క్షమించండి, సమాధానం రూపొందించడంలో సమస్య ఎదురైంది."
-        else:
-            error_msg = response_json.get("error", {}).get("message", "Unknown error")
-            return f"API Error: {error_msg}"
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=SYSTEM_INSTRUCTION
+        )
+        response = model.generate_content(prompt)
+        if response and response.text:
+            return response.text
+        return "క్షమించండి, సమాధానం రూపొందించడంలో సమస్య ఎదురైంది."
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"AI Error: {str(e)}"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
