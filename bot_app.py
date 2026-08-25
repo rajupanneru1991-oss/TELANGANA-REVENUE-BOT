@@ -1,8 +1,8 @@
 import json
 import logging
 import os
-import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from threading import Thread
 import requests
 from telegram import Update
 from telegram.ext import (
@@ -30,28 +30,26 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-# Render Web Service Port Binding
-class HealthCheckHandler(BaseHTTPRequestHandler):
+# 1. Render కోసం లైట్‌వెయిట్ హెల్త్ చెక్ సర్వర్
+class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
-        self.send_header("Content-type", "text/plain")
         self.end_headers()
-        self.wfile.write(b"Bot is running successfully!")
+        self.wfile.write(b"Bot is alive!")
 
-    def do_HEAD(self):
-        self.send_response(200)
-        self.end_headers()
+    def log_message(self, format, *args):
+        return  # లాగ్స్ ఓవర్‌ಲೋడ్ అవ్వకుండా నివారిస్తుంది
 
-def run_web_server():
+def run_server():
     port = int(os.getenv("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    server = HTTPServer(("0.0.0.0", port), SimpleHandler)
     server.serve_forever()
 
+# 2. Gemini API రెస్పాన్స్ ఫంక్షన్ (Fast & Timeout Optimized)
 def get_gemini_response(prompt: str) -> str:
     if not GEMINI_API_KEY:
         return "API Key లోపం: GEMINI_API_KEY ఎన్విరాన్‌మెంట్ వేరియబుల్ సరిగ్గా సెట్ కాలేదు."
 
-    # Stable Gemini 1.5 Flash Endpoint with v1 API
     url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     headers = {"Content-Type": "application/json"}
     payload = {
@@ -65,21 +63,21 @@ def get_gemini_response(prompt: str) -> str:
     }
 
     try:
-        # Increased timeout to 60 seconds to prevent timeout errors
-        response = requests.post(url, headers=headers, json=payload, timeout=60)
-        response_json = response.json()
-
+        response = requests.post(url, headers=headers, json=payload, timeout=25)
         if response.status_code == 200:
-            candidates = response_json.get("candidates", [])
+            res_json = response.json()
+            candidates = res_json.get("candidates", [])
             if candidates:
                 return candidates[0]["content"]["parts"][0]["text"]
             return "క్షమించండి, సమాధానం రూపొందించడంలో సమస్య ఎదురైంది."
         else:
-            error_msg = response_json.get("error", {}).get("message", "Unknown error")
-            return f"API Error: {error_msg}"
+            return f"API Error Code: {response.status_code}"
+    except requests.exceptions.Timeout:
+        return "సమాధానం ఇవ్వడానికి ఎక్కువ సమయం పట్టింది (Timeout). దయచేసి మళ్లీ ప్రయత్నించండి."
     except Exception as e:
         return f"Error: {str(e)}"
 
+# 3. Telegram Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_text = (
         "నమస్కారం! 🙏\n"
@@ -97,11 +95,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(reply)
 
 def main():
-    # Start web server in background thread for Render
-    web_thread = threading.Thread(target=run_web_server, daemon=True)
-    web_thread.start()
+    # వెబ్ సర్వర్‌ను బ్యాక్‌గ్రౌండ్‌లో రన్ చేయడం ద్వారా Render పోర్ట్ ఇష్యూ రాదు
+    server_thread = Thread(target=run_server, daemon=True)
+    server_thread.start()
 
-    print("Bot is running...")
+    print("Telegram Bot is starting...")
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -109,7 +107,8 @@ def main():
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
     )
 
-    app.run_polling()
+    # బాట్‌ను రన్ చేయడం
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
