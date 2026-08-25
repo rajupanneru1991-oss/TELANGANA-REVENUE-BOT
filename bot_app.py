@@ -45,13 +45,13 @@ def run_server():
     server = HTTPServer(("0.0.0.0", port), SimpleHandler)
     server.serve_forever()
 
-# Gemini API Function with updated stable model
+# Gemini API Function with updated stable Gemini 3.6 Flash model
 def get_gemini_response(prompt: str) -> str:
     if not GEMINI_API_KEY:
         return "API Key లోపం: GEMINI_API_KEY ఎన్విరాన్‌మెంట్ వేరియబుల్ సరిగ్గా సెట్ కాలేదు."
 
-    # Updated to gemini-2.5-flash with v1 endpoint
-    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    # Using the latest stable gemini-3.6-flash model endpoint
+    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [
@@ -64,7 +64,7 @@ def get_gemini_response(prompt: str) -> str:
     }
 
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        response = requests.post(url, headers=headers, json=payload, timeout=45)
         if response.status_code == 200:
             res_json = response.json()
             candidates = res_json.get("candidates", [])
@@ -72,7 +72,7 @@ def get_gemini_response(prompt: str) -> str:
                 return candidates[0]["content"]["parts"][0]["text"]
             return "క్షమించండి, సమాధానం రూపొందించడంలో సమస్య ఎదురైంది."
         else:
-            return f"API Error Code: {response.status_code} - {response.text[:100]}"
+            return f"API Error Code: {response.status_code} - {response.text[:120]}"
     except requests.exceptions.Timeout:
         return "సమాధానం ఇవ్వడానికి ఎక్కువ సమయం పట్టింది (Timeout). దయచేసి మళ్లీ ప్రయత్నించండి."
     except Exception as e:
