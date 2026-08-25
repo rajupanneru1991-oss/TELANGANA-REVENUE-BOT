@@ -30,7 +30,7 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-# Render Web Service Port Binding (Prevent Port Scan Timeout)
+# Render Web Service Port Binding
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -51,8 +51,8 @@ def get_gemini_response(prompt: str) -> str:
     if not GEMINI_API_KEY:
         return "API Key లోపం: GEMINI_API_KEY ఎన్విరాన్‌మెంట్ వేరియబుల్ సరిగ్గా సెట్ కాలేదు."
 
-    # Gemini 3.6 Flash Endpoint
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={GEMINI_API_KEY}"
+    # Stable Gemini 1.5 Flash Endpoint with v1 API
+    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [
@@ -65,7 +65,8 @@ def get_gemini_response(prompt: str) -> str:
     }
 
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        # Increased timeout to 60 seconds to prevent timeout errors
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
         response_json = response.json()
 
         if response.status_code == 200:
