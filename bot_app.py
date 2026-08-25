@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 
 # మీ API Keys
-GEMINI_API_KEY = "AQ.Ab8RN6Jp-pCkpJwSELBgRyA4zDtMMdprM6HkkBij5_GJe4LnKA"
+GEMINI_API_KEY = os.gtenv "AQ.Ab8RN6Jp-pCkpJwSELBgRyA4zDtMMdprM6HkkBij5_GJe4LnKA"
 TELEGRAM_BOT_TOKEN = "8488523290:AAHpuufgz_aROs_FmGowM7TOzbnAo_AUZ3E"
 
 SYSTEM_INSTRUCTION = """
