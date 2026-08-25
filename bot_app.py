@@ -3,6 +3,7 @@ import logging
 import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from threading import Thread
+import time
 import requests
 from telegram import Update
 from telegram.ext import (
@@ -30,7 +31,7 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-# Render Health Check Server
+# Render Health Check Server (Prevents port timeout)
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -45,7 +46,7 @@ def run_server():
     server = HTTPServer(("0.0.0.0", port), SimpleHandler)
     server.serve_forever()
 
-# Gemini API Function with updated stable Gemini 3.6 Flash model
+# Gemini API Function with Retry Logic for Rate Limits/Timeouts
 def get_gemini_response(prompt: str) -> str:
     if not GEMINI_API_KEY:
         return "API Key లోపం: GEMINI_API_KEY ఎన్విరాన్‌మెంట్ వేరియబుల్ సరిగ్గా సెట్ కాలేదు."
@@ -63,20 +64,36 @@ def get_gemini_response(prompt: str) -> str:
         ]
     }
 
-    try:
-        response = requests.post(url, headers=headers, json=payload, timeout=45)
-        if response.status_code == 200:
-            res_json = response.json()
-            candidates = res_json.get("candidates", [])
-            if candidates:
-                return candidates[0]["content"]["parts"][0]["text"]
-            return "క్షమించండి, సమాధానం రూపొందించడంలో సమస్య ఎదురైంది."
-        else:
-            return f"API Error Code: {response.status_code} - {response.text[:120]}"
-    except requests.exceptions.Timeout:
-        return "సమాధానం ఇవ్వడానికి ఎక్కువ సమయం పట్టింది (Timeout). దయచేసి మళ్లీ ప్రయత్నించండి."
-    except Exception as e:
-        return f"Error: {str(e)}"
+    # Retry mechanism for temporary API blocks or high traffic
+    max_retries = 2
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=40)
+            
+            if response.status_code == 200:
+                res_json = response.json()
+                candidates = res_json.get("candidates", [])
+                if candidates:
+                    return candidates[0]["content"]["parts"][0]["text"]
+                return "క్షమించండి, సమాధానం రూపొందించడంలో సమస్య ఎదుرైంది."
+            
+            elif response.status_code == 429: # Too Many Requests / Rate Limit
+                if attempt < max_retries - 1:
+                    time.sleep(3) # Wait 3 seconds before retry
+                    continue
+                return "ప్రస్తుతం సర్వర్ పై ఎక్కువ రద్దీ ఉంది. దయచేసి పది సెకన్లు ఆగి మళ్లీ ప్రయత్నించండి."
+            
+            else:
+                return f"సమాధానం ఇవ్వడంలో చిన్న సాంకేతిక సమస్య ఎదురైంది. (Code: {response.status_code})"
+                
+        except requests.exceptions.Timeout:
+            if attempt < max_retries - 1:
+                continue
+            return "సమాధానం రావడానికి ఎక్కువ సమయం పట్టింది. దయచేసి మీ ప్రశ్నను చిన్నదిగా చేసి మళ్లీ అడగండి."
+        except Exception as e:
+            return "ప్రస్తుతం సేవ అందుబాటులో లేదు. దయచేసి కొద్దిసేపటి తర్వాత ప్రయత్నించండి."
+
+    return "క్షమించండి, మీ అభ్యర్థనను ప్రస్తుతం నెరవేర్చలేకపోయాను."
 
 # Telegram Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -96,6 +113,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(reply)
 
 def main():
+    # Start web server thread
     server_thread = Thread(target=run_server, daemon=True)
     server_thread.start()
 
