@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import requests
 from telegram import Update
 from telegram.ext import (
@@ -27,6 +29,23 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
+
+# Render Web Service Port Binding (Prevent Port Scan Timeout)
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"Bot is running successfully!")
+
+    def do_HEAD(self):
+        self.send_response(200)
+        self.end_headers()
+
+def run_web_server():
+    port = int(os.getenv("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    server.serve_forever()
 
 def get_gemini_response(prompt: str) -> str:
     if not GEMINI_API_KEY:
@@ -77,6 +96,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(reply)
 
 def main():
+    # Start web server in background thread for Render
+    web_thread = threading.Thread(target=run_web_server, daemon=True)
+    web_thread.start()
+
     print("Bot is running...")
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
